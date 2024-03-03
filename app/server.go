@@ -8,6 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -22,8 +23,25 @@ type AppConfig struct {
 	AppPort string
 }
 
-func (server *Server) Initialize(appConfig AppConfig) {
+type DBConfig struct {
+	DBHost string
+	DBUser string
+	DBPass string
+	DBPort string
+	DBName string
+}
+
+func (server *Server) Initialize(appConfig AppConfig, dbConfig DBConfig) {
 	fmt.Println("Welcome to " + appConfig.AppName)
+
+	var err error
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", dbConfig.DBUser, dbConfig.DBPass, dbConfig.DBHost, dbConfig.DBPort, dbConfig.DBName)
+	server.DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+
+	if err != nil {
+		panic("Failed to connect Database")
+	}
 
 	server.Router = mux.NewRouter()
 	server.InitRoutes()
@@ -45,6 +63,7 @@ func getEnv(key, fallback string) string {
 func Run() {
 	server := Server{}
 	appConfig := AppConfig{}
+	dbConfig := DBConfig{}
 
 	err := godotenv.Load()
 	if err != nil {
@@ -55,6 +74,12 @@ func Run() {
 	appConfig.AppEnv = getEnv("APP_ENV", "development")
 	appConfig.AppPort = getEnv("APP_PORT", "9000")
 
-	server.Initialize(appConfig)
+	dbConfig.DBHost = getEnv("DB_HOST", "localhost")
+	dbConfig.DBUser = getEnv("DB_USER", "root")
+	dbConfig.DBPass = getEnv("DB_PASS", "")
+	dbConfig.DBPort = getEnv("DB_PORT", "3306")
+	dbConfig.DBName = getEnv("DB_NAME", "gotoko")
+
+	server.Initialize(appConfig, dbConfig)
 	server.Run(":" + appConfig.AppPort)
 }
