@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"toko-niko/database/seeders"
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
@@ -36,6 +37,7 @@ func (server *Server) Initialize(appConfig AppConfig, dbConfig DBConfig) {
 
 	server.InitDB(dbConfig)
 	server.InitRoutes()
+	seeders.DBSeed(server.DB) // Manggil Seeder dan Faker
 }
 
 func (server *Server) Run(address string) {
