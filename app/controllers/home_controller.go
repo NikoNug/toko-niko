@@ -1,10 +1,26 @@
 package controllers
 
 import (
-	"fmt"
+	"html/template"
 	"net/http"
+	"path"
 )
 
 func Home(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to Toko Niko HomePage")
+	filepath := path.Join("views", "index.html")
+	tmpl, err := template.ParseFiles(filepath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]interface{}{
+		"title": "Landing Page",
+		"body":  "Deskripsi Singkat",
+	}
+
+	err = tmpl.Execute(w, data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
