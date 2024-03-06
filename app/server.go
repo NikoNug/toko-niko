@@ -1,6 +1,7 @@
 package app
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	"github.com/urfave/cli"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -35,9 +37,9 @@ type DBConfig struct {
 func (server *Server) Initialize(appConfig AppConfig, dbConfig DBConfig) {
 	fmt.Println("Welcome to " + appConfig.AppName)
 
-	server.InitDB(dbConfig)
+	// server.InitDB(dbConfig)
 	server.InitRoutes()
-	seeders.DBSeed(server.DB) // Manggil Seeder dan Faker
+	// seeders.DBSeed(server.DB) // Manggil Seeder dan Faker
 }
 
 func (server *Server) Run(address string) {
@@ -54,9 +56,11 @@ func (server *Server) InitDB(dbConfig DBConfig) {
 	if err != nil {
 		panic("Failed to connect to Database")
 	}
+}
 
+func (server *Server) dbMigrate() {
 	for _, model := range RegisterModels() {
-		err = server.DB.Debug().AutoMigrate(model.Model)
+		err := server.DB.Debug().AutoMigrate(model.Model)
 
 		if err != nil {
 			log.Fatal(err)
@@ -64,6 +68,36 @@ func (server *Server) InitDB(dbConfig DBConfig) {
 	}
 
 	fmt.Println("Migration Database Successful")
+}
+
+func (server *Server) InitCommands(config AppConfig, dbConfig DBConfig) {
+	server.InitDB(dbConfig)
+
+	cmdApp := cli.NewApp()
+	cmdApp.Commands = []cli.Command{
+		{
+			Name: "db:migrate",
+			Action: func(c *cli.Context) error {
+				server.dbMigrate()
+				return nil
+			},
+		},
+		{
+			Name: "db:seed",
+			Action: func(c *cli.Context) error {
+				err := seeders.DBSeed(server.DB)
+				if err != nil {
+					log.Fatal(err)
+				}
+				return nil
+			},
+		},
+	}
+
+	err := cmdApp.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func getEnv(key, fallback string) string {
@@ -94,6 +128,12 @@ func Run() {
 	dbConfig.DBPort = getEnv("DB_PORT", "3306")
 	dbConfig.DBName = getEnv("DB_NAME", "gotoko")
 
-	server.Initialize(appConfig, dbConfig)
-	server.Run(":" + appConfig.AppPort)
+	flag.Parse()
+	arg := flag.Arg(0)
+	if arg != "" {
+		server.InitCommands(appConfig, dbConfig)
+	} else {
+		server.Initialize(appConfig, dbConfig)
+		server.Run(":" + appConfig.AppPort)
+	}
 }
